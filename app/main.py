@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
@@ -12,8 +14,21 @@ from analysis.gaps import GapDetector
 
 from core.heritage import HeritageScoreEngine
 
+from backup.engine import ImportantArtifactBackup
+from backup.integration import (
+    build_existing_reference_counts,
+)
 
-def write_json(path: Path, data) -> None:
+
+# ============================================================
+# JSON HELPERS
+# ============================================================
+
+
+def write_json(
+    path: Path,
+    data,
+) -> None:
     """
     Write JSON data to disk.
     """
@@ -37,17 +52,23 @@ def write_json(path: Path, data) -> None:
         )
 
 
-def serialize_objects(items) -> list:
+def serialize_objects(
+    items,
+) -> list:
     """
-    Convert dataclass/model objects into JSON-compatible
-    dictionaries where possible.
+    Convert dataclass/model objects into
+    JSON-compatible dictionaries where possible.
     """
 
     result = []
 
     for item in items:
 
-        if hasattr(item, "to_dict"):
+        if hasattr(
+            item,
+            "to_dict",
+        ):
+
             result.append(
                 item.to_dict()
             )
@@ -56,14 +77,23 @@ def serialize_objects(items) -> list:
             item,
             "__dict__",
         ):
+
             result.append(
                 item.__dict__
             )
 
         else:
-            result.append(item)
+
+            result.append(
+                item
+            )
 
     return result
+
+
+# ============================================================
+# MAIN
+# ============================================================
 
 
 def main():
@@ -71,7 +101,8 @@ def main():
     parser = argparse.ArgumentParser(
         description=(
             "Digi Artifact Guard - "
-            "Digital Artifact Analysis and Recovery"
+            "Digital Artifact Analysis, "
+            "Preservation and Recovery"
         )
     )
 
@@ -94,9 +125,9 @@ def main():
 
     args = parser.parse_args()
 
-    # ---------------------------------------------------------
+    # ========================================================
     # INPUT PATH
-    # ---------------------------------------------------------
+    # ========================================================
 
     project_path = (
         Path(
@@ -115,19 +146,21 @@ def main():
     if not project_path.exists():
 
         raise FileNotFoundError(
-            f"Project path does not exist: "
+            "Project path does not exist: "
             f"{project_path}"
         )
 
     if not project_path.is_dir():
 
         raise NotADirectoryError(
-            f"Project path is not a directory: "
+            "Project path is not a directory: "
             f"{project_path}"
         )
 
     output_dir = (
-        Path(args.output)
+        Path(
+            args.output
+        )
         .expanduser()
         .resolve()
     )
@@ -137,9 +170,9 @@ def main():
         exist_ok=True,
     )
 
-    # ---------------------------------------------------------
+    # ========================================================
     # SOURCE
-    # ---------------------------------------------------------
+    # ========================================================
 
     source = LocalProjectSource(
         project_path
@@ -153,9 +186,9 @@ def main():
         f"Root   : {project_path}"
     )
 
-    # ---------------------------------------------------------
+    # ========================================================
     # INVENTORY
-    # ---------------------------------------------------------
+    # ========================================================
 
     manifest = (
         ManifestGenerator(
@@ -188,9 +221,9 @@ def main():
         f"{total_size} bytes"
     )
 
-    # ---------------------------------------------------------
+    # ========================================================
     # INTEGRITY
-    # ---------------------------------------------------------
+    # ========================================================
 
     duplicate_groups = (
         find_duplicate_groups(
@@ -228,9 +261,9 @@ def main():
         f"{len(empty_artifacts)}"
     )
 
-    # ---------------------------------------------------------
+    # ========================================================
     # REFERENCE ANALYSIS
-    # ---------------------------------------------------------
+    # ========================================================
 
     reference_engine = (
         ReferenceEngine(
@@ -253,9 +286,9 @@ def main():
         f"{len(references)}"
     )
 
-    # ---------------------------------------------------------
+    # ========================================================
     # GAP ANALYSIS
-    # ---------------------------------------------------------
+    # ========================================================
 
     gap_detector = GapDetector()
 
@@ -274,13 +307,9 @@ def main():
         f"{len(gaps)}"
     )
 
-    # ---------------------------------------------------------
+    # ========================================================
     # RECOVERY PLANS
-    #
-    # The project can contain recovery modules with different
-    # APIs. Keep this section defensive so analysis can still
-    # complete even when no recovery planner is installed.
-    # ---------------------------------------------------------
+    # ========================================================
 
     restoration_plans = []
 
@@ -324,19 +353,20 @@ def main():
             except Exception as exc:
 
                 print(
-                    f"Warning: recovery planning "
-                    f"failed for {gap.referenced_path}: "
+                    "Warning: recovery planning "
+                    f"failed for "
+                    f"{gap.referenced_path}: "
                     f"{exc}"
                 )
 
     except ImportError:
 
-        # Recovery planning is optional at this stage.
+        # Recovery planning is optional.
         restoration_plans = []
 
-    # ---------------------------------------------------------
+    # ========================================================
     # HERITAGE SCORE
-    # ---------------------------------------------------------
+    # ========================================================
 
     heritage_engine = (
         HeritageScoreEngine()
@@ -391,9 +421,66 @@ def main():
         f"{heritage.reconstruction}"
     )
 
-    # ---------------------------------------------------------
-    # OUTPUT
-    # ---------------------------------------------------------
+    # ========================================================
+    # IMPORTANT ARTIFACT BACKUP
+    # ========================================================
+
+    print()
+    print("IMPORTANT ARTIFACT BACKUP")
+    print("-" * 60)
+
+    # Count how many surviving artifacts reference
+    # existing artifacts.
+    reference_counts = (
+        build_existing_reference_counts(
+            references
+        )
+    )
+
+    backup_engine = ImportantArtifactBackup(
+        project_root=project_path,
+        output_root=output_dir,
+    )
+
+    backup_manifest = (
+        backup_engine.create_backup(
+            references=reference_counts,
+        )
+    )
+
+    backup_manifest_path = (
+        output_dir
+        / "backup_manifest.json"
+    )
+
+    backup_directory = (
+        output_dir
+        / "important"
+    )
+
+    print(
+        f"Artifacts backed up : "
+        f"{backup_manifest['artifact_count']}"
+    )
+
+    print(
+        f"Artifacts excluded  : "
+        f"{backup_manifest['excluded_count']}"
+    )
+
+    print(
+        f"Backup manifest     : "
+        f"{backup_manifest_path}"
+    )
+
+    print(
+        f"Backup directory    : "
+        f"{backup_directory}"
+    )
+
+    # ========================================================
+    # OUTPUT PATHS
+    # ========================================================
 
     manifest_path = (
         output_dir
@@ -425,6 +512,10 @@ def main():
         / "restoration_plans.json"
     )
 
+    # ========================================================
+    # MANIFEST OUTPUT
+    # ========================================================
+
     write_json(
         manifest_path,
         {
@@ -443,6 +534,10 @@ def main():
                 ),
         },
     )
+
+    # ========================================================
+    # INTEGRITY OUTPUT
+    # ========================================================
 
     write_json(
         integrity_path,
@@ -468,6 +563,10 @@ def main():
         },
     )
 
+    # ========================================================
+    # REFERENCES OUTPUT
+    # ========================================================
+
     write_json(
         references_path,
         {
@@ -480,6 +579,10 @@ def main():
                 ),
         },
     )
+
+    # ========================================================
+    # GAPS OUTPUT
+    # ========================================================
 
     write_json(
         gaps_path,
@@ -494,6 +597,10 @@ def main():
         },
     )
 
+    # ========================================================
+    # RESTORATION PLANS OUTPUT
+    # ========================================================
+
     write_json(
         restoration_plans_path,
         {
@@ -507,10 +614,18 @@ def main():
         },
     )
 
+    # ========================================================
+    # HERITAGE CARD OUTPUT
+    # ========================================================
+
     write_json(
         heritage_path,
         heritage.to_dict(),
     )
+
+    # ========================================================
+    # FINAL OUTPUT
+    # ========================================================
 
     print()
     print("OUTPUT")
@@ -544,6 +659,16 @@ def main():
     print(
         f"Restoration Plans: "
         f"{restoration_plans_path}"
+    )
+
+    print(
+        f"Backup Manifest  : "
+        f"{backup_manifest_path}"
+    )
+
+    print(
+        f"Important Backup : "
+        f"{backup_directory}"
     )
 
     print()

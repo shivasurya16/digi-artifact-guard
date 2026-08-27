@@ -1,0 +1,52 @@
+{
+  "backup_policy": "important_artifacts_only",
+  "generated_at": "2026-08-26T17:00:24.932017+00:00",
+  "project_root": "D:\\digi_artifact_gaurd\\backup_test_project",
+  "artifact_count": 2,
+  "excluded_count": 2,
+  "artifacts": [
+    {
+      "source_path": "main.py",
+      "backup_path": "important/main.py",
+      "importance": "HIGH",
+      "score": 70,
+      "reasons": [
+        "Important artifact type: .py"
+      ],
+      "size": 16,
+      "sha256": "c85ecdebcd185df63f5c68dc814483e58c8dcf40feaa0960df7265f6b2632332",
+      "verified": true
+    },
+    {
+      "source_path": "README.md",
+      "backup_path": "important/README.md",
+      "importance": "HIGH",
+      "score": 100,
+      "reasons": [
+        "Important project metadata/documentation.",
+        "Important artifact type: .md"
+      ],
+      "size": 21,
+      "sha256": "df3c2294ded652f21fcd00ab0122bafb93e4c69e475eead0e31a6106c84c5c9d",
+      "verified": true
+    }
+  ],
+  "excluded": [
+    {
+      "source_path": "debug.log",
+      "importance": "LOW",
+      "score": 5,
+      "reasons": [
+        "Disposable/generated extension: .log"
+      ]
+    },
+    {
+      "source_path": "__pycache__/test.pyc",
+      "importance": "LOW",
+      "score": 0,
+      "reasons": [
+        "Located inside a disposable/cache directory."
+      ]
+    }
+  ]
+}
